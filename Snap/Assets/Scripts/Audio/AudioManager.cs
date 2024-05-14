@@ -4,15 +4,31 @@ using UnityEngine;
 
 public class AudioManager : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
+    public static AudioManager instance;
+
+    private void Awake()
     {
-        
+        if (instance != null) Destroy(gameObject);
+        else
+        {
+            instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
     }
 
-    // Update is called once per frame
-    void Update()
+    public void PlaySoundOneShot(AudioSource source, SpatialSound spatialSound = null, bool overrideSource = true)
     {
-        
+        // Play sound always if override is on, else, only play sound if not already playing
+        if (!overrideSource && source.isPlaying) return;
+
+        // Emit spatial sound to environment if exists
+        if (spatialSound != null) SoundEmitter.EmitSound(spatialSound);
+
+        // Play audio clip
+        source.PlayOneShot(source.clip);
+    }
+    public void StopPlaying(AudioSource source)
+    {
+        source.Stop();
     }
 }

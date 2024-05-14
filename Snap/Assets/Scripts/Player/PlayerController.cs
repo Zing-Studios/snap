@@ -5,6 +5,12 @@ using Cinemachine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Player Settings")]
+    [SerializeField] private float stamina = 100f;
+    [SerializeField] private int health = 100;
+    [SerializeField] private float staminaDrainRate = 2.5f;
+    [SerializeField] private float staminaRegenRate = 2f;
+
     [Header("Movement Settings")]
     [SerializeField] private float walkSpeed;
     [SerializeField] private float sprintSpeed;
@@ -28,6 +34,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float xRotationLimit;
     private float lookRotation;
     private float sprintFov;
+    private CinemachineBasicMultiChannelPerlin playerCameraNoise;
 
     [Header("Head Bobbing")]
     [SerializeField] private Transform itemHolder;
@@ -81,10 +88,11 @@ public class PlayerController : MonoBehaviour
         // Movement functions
         GetMovementSpeed();
         TweenFOV();
+        HandlePlayerStamina();
 
         // Head bobbing
         ResetPosition();
-        if (rb.velocity.magnitude > 0.1f) PlayMotion(FootStepMotion());
+        if (rb.velocity.magnitude > 0.1f && grounded) PlayMotion(FootStepMotion());
 
         // Miscellaneous
         playerHeight = crouching ? 2f : 1f;
@@ -113,6 +121,8 @@ public class PlayerController : MonoBehaviour
 
         sprintFov = playerCamera.m_Lens.FieldOfView + 5f;
         startPos = itemHolder.transform.localPosition;
+
+        playerCameraNoise = playerCamera.GetCinemachineComponent<CinemachineBasicMultiChannelPerlin>();
     }
 
     #endregion
@@ -150,11 +160,14 @@ public class PlayerController : MonoBehaviour
 
         inCrouch = !inCrouch;
 
+        if (inCrouch) cameraHolder.transform.DOLocalMove(new Vector3(0f, 0.75f, 0f), 0.3f).SetEase(Ease.InOutFlash).OnComplete(SwitchColliders);
+        else cameraHolder.transform.DOLocalMove(new Vector3(0f, 1.5f, 0f), 0.3f).SetEase(Ease.InOutFlash).OnComplete(SwitchColliders);
+    }
+
+    private void SwitchColliders()
+    {
         crouchingCollider.enabled = inCrouch;
         standingCollider.enabled = !inCrouch;
-
-        if (inCrouch) cameraHolder.transform.DOLocalMove(new Vector3(0f, 0.75f, 0f), 0.2f).SetEase(Ease.InOutFlash);
-        else cameraHolder.transform.DOLocalMove(new Vector3(0f, 1.5f, 0f), 0.2f).SetEase(Ease.InOutFlash);
     }
 
     private void PlayMotion(Vector3 motion)
@@ -165,8 +178,8 @@ public class PlayerController : MonoBehaviour
     private Vector3 FootStepMotion()
     {
         Vector3 pos = Vector3.zero;
-        pos.y += Mathf.Sin(Time.time * speed * frequency) * amplitude;
-        pos.x += Mathf.Cos(Time.time * speed * frequency / 2f) * amplitude * 2f;
+        pos.y += Mathf.Sin(Time.time * Mathf.Pow(speed, 1.1f) * frequency) * amplitude * speed;
+        pos.x += Mathf.Cos(Time.time * Mathf.Pow(speed, 1.1f) * frequency / 2f) * amplitude * speed * 0.75f;
         return pos;
     }
 
@@ -225,6 +238,17 @@ public class PlayerController : MonoBehaviour
 
         }
         return false;
+    }
+
+    private void HandlePlayerStamina()
+    {
+        if (speed == sprintSpeed) stamina -= Time.deltaTime * staminaDrainRate;
+        else stamina += Time.deltaTime * staminaRegenRate;
+
+        stamina = Mathf.Clamp(stamina, 0f, 100f);
+
+        playerCameraNoise.m_AmplitudeGain = 10f / stamina;
+        playerCameraNoise.m_FrequencyGain = Mathf.Clamp(100f / stamina, 1f, 1.25f);
     }
 
     #endregion
